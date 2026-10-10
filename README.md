@@ -1,3 +1,16 @@
+## 同步上游
+git fetch upstream
+git checkout main
+git merge upstream/main
+
+## gitee提交
+git add .
+git commit -m "这里写本次修改描述"
+git push origin main
+
+## 推回GitHub
+git push github main
+
 <h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="assets/readme/harness-wordmark-compact-dark.svg">
