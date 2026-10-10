@@ -1,44 +1,6 @@
-import React from 'react';
-import { AppStatus } from '../../../shared/types';
+import { AppStatus } from '../../shared/types';
 
-interface Props {
-  status: AppStatus;
-}
-
-export function StatusBar({ status }: Props) {
-  const statusColor = {
-    idle: '#888',
-    indexing: '#f0ad4e',
-    ready: '#5cb85c',
-    error: '#d9534f',
-  }[status.indexStatus] ?? '#888';
-
-  return (
-    <div style={{
-      padding: '4px 20px',
-      background: '#0f1729',
-      borderTop: '1px solid #0f3460',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      fontSize: '11px',
-      color: '#888',
-    }}>
-      <span>
-        <span style={{
-          display: 'inline-block',
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          background: statusColor,
-          marginRight: '6px',
-        }} />
-        Index: {status.indexStatus}
-      </span>
-      <span>Documents: {status.documentsLoaded}</span>
-      {status.lastActivity && (
-        <span>Last activity: {new Date(status.lastActivity).toLocaleTimeString()}</span>
-      )}
-    </div>
-  );
+export function StatusBar({ status }: { status: AppStatus }) {
+  const labels = { idle: '等待索引', indexing: '正在索引', ready: '索引已就绪', error: '索引异常' };
+  return <footer className="statusbar"><span><span className={`status-dot ${status.indexStatus}`} />{labels[status.indexStatus]}</span><span>{status.documentsLoaded} 份文档</span><span className="status-spacer" /><span>本地知识库</span></footer>;
 }

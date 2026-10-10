@@ -1,16 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Chunk, Document } from '../shared/types';
+import { AppStatus, Chunk, Document } from '../shared/types';
 import { PersistenceService } from './persistence-service';
 
 const INDEX_META = 'index-meta.json';
 const CHUNKS_DIR = 'chunks';
-
-interface IndexStatus {
-  status: 'idle' | 'indexing' | 'ready' | 'error';
-  currentIndexed: number;
-  totalDocuments: number;
-  lastIndexed: string | null;
-}
 
 export class IndexingService {
   private persistence: PersistenceService;
@@ -20,17 +13,21 @@ export class IndexingService {
   }
 
   /** Start indexing documents. If documentId is provided, index only that document. */
-  async startIndexing(documentId?: string): Promise<IndexStatus> {
+  async startIndexing(documentId?: string): Promise<AppStatus> {
     const status = this.getStatus();
 
     if (documentId) {
       // Index a single document
       const content = this.persistence.readText(`content/${documentId}.txt`);
       if (!content) {
-        return { ...status, status: 'error' };
+        return { ...status, indexStatus: 'error' };
       }
       const chunks = this.chunkDocument(documentId, content);
       this.persistence.writeJson(`${CHUNKS_DIR}/${documentId}.json`, chunks);
+      this.updateDocumentStatus(documentId, 'indexed', chunks.length);
+      const chunksMeta = this.persistence.readJson<Record<string, string[]>>(INDEX_META) ?? {};
+      chunksMeta[documentId] = chunks.map(c => c.id);
+      this.persistence.writeJson(INDEX_META, chunksMeta);
       return this.getStatus();
     }
 
@@ -47,6 +44,7 @@ export class IndexingService {
       const chunks = this.chunkDocument(doc.id, content);
       this.persistence.writeJson(`${CHUNKS_DIR}/${doc.id}.json`, chunks);
       chunksMeta[doc.id] = chunks.map(c => c.id);
+      this.updateDocumentStatus(doc.id, 'indexed', chunks.length);
     }
 
     this.persistence.writeJson(INDEX_META, chunksMeta);
@@ -54,19 +52,17 @@ export class IndexingService {
   }
 
   /** Get current indexing status. */
-  getStatus(): IndexStatus {
+  getStatus(): AppStatus {
     const docs = this.persistence.readJson<Document[]>('documents-meta.json') ?? [];
     const chunksMeta = this.persistence.readJson<Record<string, string[]>>(INDEX_META) ?? {};
 
-    const currentIndexed = Object.keys(chunksMeta).length;
-    const totalDocuments = docs.length;
-    const isReady = currentIndexed === totalDocuments && totalDocuments > 0;
+    const currentIndexed = docs.filter(doc => chunksMeta[doc.id]).length;
+    const isReady = currentIndexed === docs.length && docs.length > 0;
 
     return {
-      status: isReady ? 'ready' : currentIndexed > 0 ? 'indexing' : 'idle',
-      currentIndexed,
-      totalDocuments,
-      lastIndexed: new Date().toISOString(),
+      documentsLoaded: docs.length,
+      indexStatus: isReady ? 'ready' : 'idle',
+      lastActivity: new Date().toISOString(),
     };
   }
 
@@ -126,5 +122,14 @@ export class IndexingService {
         wordCount: String(content.split(/\s+/).length),
       },
     };
+  }
+
+  private updateDocumentStatus(documentId: string, status: Document['status'], chunks: number) {
+    const docs = this.persistence.readJson<Document[]>('documents-meta.json') ?? [];
+    const doc = docs.find(item => item.id === documentId);
+    if (!doc) return;
+    doc.status = status;
+    doc.chunks = chunks;
+    this.persistence.writeJson('documents-meta.json', docs);
   }
 }

@@ -1,61 +1,9 @@
 import React, { useState } from 'react';
 
-interface Props {
-  onAsk: (question: string) => void;
-}
-
-export function QuestionPanel({ onAsk }: Props) {
+interface Props { onAsk: (question: string) => void; isAsking: boolean; disabled: boolean; }
+export function QuestionPanel({ onAsk, isAsking, disabled }: Props) {
   const [question, setQuestion] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
-    onAsk(question.trim());
-    setQuestion('');
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        display: 'flex',
-        padding: '12px 20px',
-        borderTop: '1px solid #0f3460',
-        background: '#16213e',
-      }}
-    >
-      <input
-        type="text"
-        value={question}
-        onChange={e => setQuestion(e.target.value)}
-        placeholder="Ask a question about your documents..."
-        style={{
-          flex: 1,
-          padding: '10px 14px',
-          background: '#1a1a2e',
-          color: '#e0e0e0',
-          border: '1px solid #0f3460',
-          borderRadius: '6px',
-          fontSize: '14px',
-          outline: 'none',
-        }}
-      />
-      <button
-        type="submit"
-        style={{
-          marginLeft: '10px',
-          padding: '10px 20px',
-          background: '#533483',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 500,
-        }}
-      >
-        Ask
-      </button>
-    </form>
-  );
+  const examples = ['系统采用了什么架构？', '索引如何处理文档？'];
+  const handleSubmit = (event: React.FormEvent) => { event.preventDefault(); if (!question.trim() || isAsking || disabled) return; onAsk(question.trim()); setQuestion(''); };
+  return <div className="question-area"><div className="example-questions">{examples.map(example => <button key={example} onClick={() => setQuestion(example)} disabled={disabled || isAsking}>{example}</button>)}</div><form className="question-form" onSubmit={handleSubmit}><input value={question} onChange={event => setQuestion(event.target.value)} disabled={disabled || isAsking} placeholder={disabled ? '先导入一份文档' : '询问你的文档...'} aria-label="输入问题" /><button className="ask-button" type="submit" disabled={!question.trim() || disabled || isAsking}>{isAsking ? '思考中' : '提问'}<span aria-hidden="true">↗</span></button></form><div className="question-hint">Enter 提交 · 回答只使用本地已索引内容</div></div>;
 }

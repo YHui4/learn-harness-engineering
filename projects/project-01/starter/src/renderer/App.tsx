@@ -1,177 +1,91 @@
-import React, { useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DocumentList } from './components/DocumentList';
 import { QuestionPanel } from './components/QuestionPanel';
 import { DocumentDetail } from './components/DocumentDetail';
 import { StatusBar } from './components/StatusBar';
-import { Document, AppStatus, QAResponse } from '../../shared/types';
+import { AppStatus, Document, QAResponse } from '../shared/types';
+import './styles.css';
 
-declare global {
-  interface Window {
-    knowledgeBase: {
-      documents: {
-        list: () => Promise<Document[]>;
-        import: (filePath: string) => Promise<Document>;
-        get: (id: string) => Promise<Document | null>;
-        delete: (id: string) => Promise<boolean>;
-      };
-      indexing: {
-        start: (documentId?: string) => Promise<{ status: string }>;
-        status: () => Promise<AppStatus>;
-        chunks: (documentId: string) => Promise<Array<{ id: string; content: string; index: number }>>;
-      };
-      qa: {
-        ask: (question: string) => Promise<QAResponse>;
-        history: () => Promise<Array<{ question: string; response: QAResponse }>>;
-      };
-    };
-  }
-}
-
+const initialStatus: AppStatus = { documentsLoaded: 0, indexStatus: 'idle', lastActivity: '' };
 export function App() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
-  const [appStatus, setAppStatus] = useState<AppStatus>({
-    documentsLoaded: 0,
-    indexStatus: 'idle',
-    lastActivity: '',
-  });
+  const [appStatus, setAppStatus] = useState<AppStatus>(initialStatus);
   const [lastResponse, setLastResponse] = useState<QAResponse | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
+  const [error, setError] = useState('');
 
   const refreshDocuments = useCallback(async () => {
     try {
-      const docs = await window.knowledgeBase.documents.list();
+      const [docs, status] = await Promise.all([window.knowledgeBase.documents.list(), window.knowledgeBase.indexing.status()]);
       setDocuments(docs);
-      const status = await window.knowledgeBase.indexing.status();
       setAppStatus(status);
+      setSelectedDoc(current => current ? docs.find(doc => doc.id === current.id) ?? null : current);
     } catch (err) {
       console.error('Failed to refresh documents:', err);
+      setError('无法读取本地知识库。请重试。');
     }
   }, []);
+
+  useEffect(() => { void refreshDocuments(); }, [refreshDocuments]);
 
   const handleImport = useCallback(async () => {
-    // In a real app this would open a file dialog.
-    // For the course, we'll trigger import via the dev console or init script.
-    console.log('Import triggered - use window.knowledgeBase.documents.import(filePath)');
-  }, []);
-
-  const handleSelectDocument = useCallback((doc: Document) => {
-    setSelectedDoc(doc);
-  }, []);
+    setError('');
+    setIsImporting(true);
+    try {
+      const document = await window.knowledgeBase.documents.chooseAndImport();
+      if (document) {
+        await window.knowledgeBase.indexing.start(document.id);
+        await refreshDocuments();
+        setSelectedDoc(await window.knowledgeBase.documents.get(document.id));
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+      setError('导入失败，请确认文件仍然存在且格式可读。');
+    } finally {
+      setIsImporting(false);
+    }
+  }, [refreshDocuments]);
 
   const handleAskQuestion = useCallback(async (question: string) => {
+    setError('');
+    setIsAsking(true);
     try {
-      const response = await window.knowledgeBase.qa.ask(question);
-      setLastResponse(response);
+      setLastResponse(await window.knowledgeBase.qa.ask(question));
     } catch (err) {
       console.error('Q&A failed:', err);
+      setError('回答生成失败，请稍后再试。');
+    } finally {
+      setIsAsking(false);
     }
   }, []);
 
+  const indexedCount = useMemo(() => documents.filter(doc => doc.status === 'indexed').length, [documents]);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <header style={{
-        padding: '12px 20px',
-        background: '#16213e',
-        borderBottom: '1px solid #0f3460',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
-        <h1 style={{ fontSize: '18px', fontWeight: 600 }}>Knowledge Base</h1>
-        <button
-          onClick={refreshDocuments}
-          style={{
-            padding: '6px 14px',
-            background: '#0f3460',
-            color: '#e0e0e0',
-            border: '1px solid #1a1a4e',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '13px',
-          }}
-        >
-          Refresh
-        </button>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand-lockup"><div className="brand-mark" aria-hidden="true">K</div><div><div className="brand-name">Knowledge Base</div><div className="brand-caption">Local workspace</div></div></div>
+        <div className="topbar-actions"><span className="storage-note">数据仅保存在本机</span><button className="icon-button" onClick={() => void refreshDocuments()} title="刷新文档列表" aria-label="刷新文档列表">↻</button></div>
       </header>
-
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left panel: Document list */}
-        <div style={{
-          width: '280px',
-          borderRight: '1px solid #0f3460',
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#16213e',
-        }}>
-          <div style={{
-            padding: '10px 16px',
-            borderBottom: '1px solid #0f3460',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            <span style={{ fontSize: '13px', fontWeight: 500, color: '#a0a0c0' }}>
-              Documents ({documents.length})
-            </span>
-            <button
-              onClick={handleImport}
-              style={{
-                padding: '4px 10px',
-                background: '#533483',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              + Import
-            </button>
+      <main className="workspace">
+        <aside className="sidebar">
+          <div className="sidebar-heading"><div><span className="eyebrow">Library</span><h1>文档库</h1></div><span className="count-badge">{documents.length}</span></div>
+          <button className="primary-button import-button" onClick={() => void handleImport()} disabled={isImporting}><span className="button-symbol" aria-hidden="true">+</span>{isImporting ? '正在导入...' : '导入文档'}</button>
+          <DocumentList documents={documents} onSelect={setSelectedDoc} selectedId={selectedDoc?.id ?? null} />
+          <div className="sidebar-summary"><div className="summary-row"><span>已建立索引</span><strong>{indexedCount} / {documents.length}</strong></div><div className="summary-track"><span style={{ width: `${documents.length ? (indexedCount / documents.length) * 100 : 0}%` }} /></div><div className="summary-path">本地数据目录由 Electron 自动创建</div></div>
+        </aside>
+        <section className="qa-workspace" aria-label="问答面板">
+          <div className="qa-header"><div><span className="eyebrow">Ask your library</span><h2>从文档中找到答案</h2><p>回答基于已导入并建立索引的内容，并附带原文引用。</p></div><div className="index-status-chip"><span className={`status-dot ${appStatus.indexStatus}`} />{appStatus.indexStatus === 'ready' ? '索引已就绪' : '等待索引'}</div></div>
+          {error && <div className="error-banner" role="alert">{error}</div>}
+          <div className="qa-content">
+            {selectedDoc && <DocumentDetail document={selectedDoc} onUpdated={() => void refreshDocuments()} />}
+            {lastResponse ? <article className="answer-card"><div className="answer-meta"><span className="answer-label">回答</span><span>{new Date(lastResponse.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><p className="answer-text">{lastResponse.answer}</p><div className="confidence-line"><span>回答置信度</span><strong>{Math.round(lastResponse.confidence * 100)}%</strong></div>{lastResponse.citations.length > 0 && <div className="citation-list"><div className="citation-heading">来源引用</div>{lastResponse.citations.map((citation, index) => <div className="citation" key={`${citation.documentId}-${citation.chunkIndex}-${index}`}><div className="citation-title"><span className="citation-index">0{index + 1}</span>{citation.documentTitle}<span className="citation-chunk">片段 {citation.chunkIndex + 1}</span></div><p>{citation.excerpt}</p></div>)}</div>}</article> : <div className="empty-answer"><div className="empty-icon" aria-hidden="true">⌁</div><h3>准备好回答问题</h3><p>试着询问文档中的设计决策、会议结论或检索流程。</p></div>}
           </div>
-          <DocumentList
-            documents={documents}
-            onSelect={handleSelectDocument}
-            selectedId={selectedDoc?.id ?? null}
-          />
-        </div>
-
-        {/* Right panel: Document detail + Q&A */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-            {selectedDoc ? (
-              <DocumentDetail document={selectedDoc} />
-            ) : (
-              <div style={{ color: '#666', textAlign: 'center', paddingTop: '40px' }}>
-                Select a document or ask a question to get started
-              </div>
-            )}
-            {lastResponse && (
-              <div style={{
-                marginTop: '16px',
-                padding: '16px',
-                background: '#1a1a3e',
-                borderRadius: '6px',
-                border: '1px solid #0f3460',
-              }}>
-                <div style={{ fontSize: '14px', lineHeight: 1.6 }}>{lastResponse.answer}</div>
-                {lastResponse.citations.length > 0 && (
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#8888bb' }}>
-                    <strong>Citations:</strong>
-                    {lastResponse.citations.map((c, i) => (
-                      <div key={i} style={{ marginTop: '4px', paddingLeft: '8px', borderLeft: '2px solid #533483' }}>
-                        {c.documentTitle} (chunk {c.chunkIndex}): {c.excerpt.substring(0, 100)}...
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <QuestionPanel onAsk={handleAskQuestion} />
-        </div>
-      </div>
-
+          <QuestionPanel onAsk={handleAskQuestion} isAsking={isAsking} disabled={documents.length === 0} />
+        </section>
+      </main>
       <StatusBar status={appStatus} />
     </div>
   );

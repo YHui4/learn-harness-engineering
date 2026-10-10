@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, OpenDialogOptions } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipc-handlers';
 import { DocumentService } from '../services/document-service';
 import { QaService } from '../services/qa-service';
 import { IndexingService } from '../services/indexing-service';
 import { PersistenceService } from '../services/persistence-service';
+import { IPC_CHANNELS } from '../shared/types';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -46,6 +47,20 @@ function initializeServices() {
     documentService,
     indexingService,
     qaService,
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CHOOSE_AND_IMPORT_DOCUMENT, async () => {
+    const options: OpenDialogOptions = {
+      title: 'Import a document',
+      properties: ['openFile'],
+      filters: [{ name: 'Text and Markdown', extensions: ['md', 'txt'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return documentService.importDocument(result.filePaths[0]);
   });
 }
 

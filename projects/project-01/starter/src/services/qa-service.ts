@@ -1,41 +1,8 @@
-import { QAResponse, QAHistory, Citation, Chunk } from '../shared/types';
+import { QAResponse, QAHistory, Citation } from '../shared/types';
 import { PersistenceService } from './persistence-service';
 import { IndexingService } from './indexing-service';
 
 const QA_HISTORY_FILE = 'qa-history.json';
-
-/** Mock Q&A patterns keyed to document content keywords. */
-const MOCK_PATTERNS: Array<{
-  keywords: string[];
-  answer: string;
-  excerpt: string;
-}> = [
-  {
-    keywords: ['design', 'architecture', 'pattern'],
-    answer: 'The system uses a layered architecture with clear boundaries between the main process, preload scripts, and renderer. Each layer communicates through typed IPC channels, and the services layer handles business logic independently of the UI.',
-    excerpt: 'The system uses a layered architecture with clear boundaries',
-  },
-  {
-    keywords: ['import', 'document', 'file'],
-    answer: 'Documents are imported by copying the source file to the local data directory. The system extracts text content and creates metadata including title, filename, size, and import timestamp. After import, documents can be indexed for search.',
-    excerpt: 'Documents are imported by copying the source file',
-  },
-  {
-    keywords: ['index', 'chunk', 'search'],
-    answer: 'The indexing pipeline splits documents into chunks of approximately 500 characters at paragraph boundaries. Each chunk includes metadata like character count and word count. The index enables grounded Q&A with citations pointing to specific document sections.',
-    excerpt: 'The indexing pipeline splits documents into chunks',
-  },
-  {
-    keywords: ['retrieval', 'search', 'query'],
-    answer: 'Retrieval works by matching query keywords against indexed chunks. The system ranks chunks by keyword overlap and returns the most relevant excerpts as citations alongside the generated answer.',
-    excerpt: 'Retrieval works by matching query keywords against indexed chunks',
-  },
-  {
-    keywords: ['meeting', 'notes', 'summary'],
-    answer: 'The meeting summary indicates that the team discussed implementing a retrieval-augmented generation pipeline. Key decisions included using local chunk storage and citation-based verification to ensure answer accuracy.',
-    excerpt: 'The team discussed implementing a retrieval-augmented generation pipeline',
-  },
-];
 
 export class QaService {
   private persistence: PersistenceService;
@@ -56,7 +23,7 @@ export class QaService {
 
     if (chunks.length > 0) {
       // Find relevant chunks using keyword matching
-      const questionWords = question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      const questionWords = this.tokenize(question);
       const scored = chunks.map(chunk => {
         const contentLower = chunk.content.toLowerCase();
         const score = questionWords.reduce(
@@ -87,7 +54,7 @@ export class QaService {
     }
 
     // Generate answer from mock patterns or use fallback
-    const answer = this.generateAnswer(question, citations);
+    const answer = this.generateAnswer(citations);
 
     const response: QAResponse = {
       answer,
@@ -107,24 +74,23 @@ export class QaService {
     return this.persistence.readJson<QAHistory[]>(QA_HISTORY_FILE) ?? [];
   }
 
-  private generateAnswer(question: string, citations: Citation[]): string {
-    // Match against mock patterns
-    const questionLower = question.toLowerCase();
-    for (const pattern of MOCK_PATTERNS) {
-      if (pattern.keywords.some(kw => questionLower.includes(kw))) {
-        if (citations.length > 0) {
-          return `${pattern.answer} Based on the document "${citations[0].documentTitle}", ${citations[0].excerpt.substring(0, 100)}.`;
-        }
-        return pattern.answer;
-      }
-    }
-
-    // Fallback answer
+  private generateAnswer(citations: Citation[]): string {
     if (citations.length > 0) {
-      return `Based on the available documents, the most relevant information comes from "${citations[0].documentTitle}": ${citations[0].excerpt.substring(0, 150)}. However, a more specific answer would require additional context.`;
+      return citations.map(citation => citation.excerpt).join('\n\n');
     }
 
     return 'No relevant documents have been indexed yet. Please import and index documents before asking questions.';
+  }
+
+  private tokenize(text: string): string[] {
+    const normalized = text.toLowerCase();
+    const latinWords = normalized.match(/[a-z0-9]{3,}/g) ?? [];
+    const cjkRuns = normalized.match(/[\u3400-\u9fff]+/g) ?? [];
+    const cjkTerms = cjkRuns.flatMap(run => {
+      if (run.length < 2) return [run];
+      return Array.from({ length: run.length - 1 }, (_, index) => run.slice(index, index + 2));
+    });
+    return [...new Set([...latinWords, ...cjkTerms])];
   }
 
   private saveToHistory(question: string, response: QAResponse): void {
