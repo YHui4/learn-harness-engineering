@@ -7,12 +7,13 @@ declare global {
       documents: {
         list: () => Promise<import('../shared/types').Document[]>;
         import: (filePath: string) => Promise<import('../shared/types').Document>;
+        importFromDialog: () => Promise<import('../shared/types').Document | null>;
         get: (id: string) => Promise<import('../shared/types').Document | null>;
         delete: (id: string) => Promise<boolean>;
       };
       indexing: {
-        start: (documentId?: string) => Promise<import('../shared/types').AppStatus>;
-        status: () => Promise<import('../shared/types').AppStatus>;
+        start: (documentId?: string) => Promise<import('../shared/types').IndexingStatus>;
+        status: () => Promise<import('../shared/types').IndexingStatus>;
         chunks: (documentId: string) => Promise<import('../shared/types').Chunk[]>;
       };
       qa: {

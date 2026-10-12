@@ -43,11 +43,19 @@ export interface AppStatus {
   lastActivity: string;
 }
 
+export interface IndexingStatus {
+  status: 'idle' | 'indexing' | 'ready' | 'error';
+  currentIndexed: number;
+  totalDocuments: number;
+  lastIndexed: string | null;
+}
+
 /** IPC channel names -- single source of truth. */
 export const IPC_CHANNELS = {
   // Document operations
   LIST_DOCUMENTS: 'documents:list',
   IMPORT_DOCUMENT: 'documents:import',
+  IMPORT_DOCUMENT_DIALOG: 'documents:import-dialog',
   GET_DOCUMENT: 'documents:get',
   DELETE_DOCUMENT: 'documents:delete',
 

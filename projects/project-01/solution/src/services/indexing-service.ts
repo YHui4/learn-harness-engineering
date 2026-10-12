@@ -31,6 +31,16 @@ export class IndexingService {
       }
       const chunks = this.chunkDocument(documentId, content);
       this.persistence.writeJson(`${CHUNKS_DIR}/${documentId}.json`, chunks);
+      const chunksMeta = this.persistence.readJson<Record<string, string[]>>(INDEX_META) ?? {};
+      chunksMeta[documentId] = chunks.map(c => c.id);
+      this.persistence.writeJson(INDEX_META, chunksMeta);
+      const documentServiceMeta = this.persistence.readJson<Document[]>('documents-meta.json') ?? [];
+      const doc = documentServiceMeta.find(item => item.id === documentId);
+      if (doc) {
+        doc.status = 'indexed';
+        doc.chunks = chunks.length;
+        this.persistence.writeJson('documents-meta.json', documentServiceMeta);
+      }
       return this.getStatus();
     }
 
@@ -47,6 +57,8 @@ export class IndexingService {
       const chunks = this.chunkDocument(doc.id, content);
       this.persistence.writeJson(`${CHUNKS_DIR}/${doc.id}.json`, chunks);
       chunksMeta[doc.id] = chunks.map(c => c.id);
+      doc.status = 'indexed';
+      doc.chunks = chunks.length;
     }
 
     this.persistence.writeJson(INDEX_META, chunksMeta);

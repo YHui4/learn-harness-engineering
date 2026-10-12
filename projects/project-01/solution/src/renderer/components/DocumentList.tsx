@@ -1,45 +1,34 @@
+import { useMemo, useState } from 'react';
 import { Document } from '../../shared/types';
 
-interface Props {
-  documents: Document[];
-  onSelect: (doc: Document) => void;
-  selectedId: string | null;
+interface Props { documents: Document[]; onSelect: (doc: Document) => void; selectedId: string | null }
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(bytes > 10240 ? 0 : 1)} KB`;
 }
 
 export function DocumentList({ documents, onSelect, selectedId }: Props) {
-  if (documents.length === 0) {
-    return (
-      <div style={{ padding: '20px 16px', color: '#666', fontSize: '13px', textAlign: 'center' }}>
-        No documents imported yet.
-        <br />
-        <span style={{ fontSize: '11px', color: '#555' }}>
-          Import documents to get started.
-        </span>
-      </div>
-    );
-  }
+  const [search, setSearch] = useState('');
+  const filteredDocuments = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return query ? documents.filter(doc => `${doc.title} ${doc.filename}`.toLowerCase().includes(query)) : documents;
+  }, [documents, search]);
 
   return (
-    <div style={{ flex: 1, overflow: 'auto' }}>
-      {documents.map(doc => (
-        <div
-          key={doc.id}
-          onClick={() => onSelect(doc)}
-          style={{
-            padding: '10px 16px',
-            cursor: 'pointer',
-            borderBottom: '1px solid #0f3460',
-            background: selectedId === doc.id ? '#0f3460' : 'transparent',
-            transition: 'background 0.15s',
-          }}
-        >
-          <div style={{ fontSize: '13px', fontWeight: 500 }}>{doc.title}</div>
-          <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
-            {doc.status === 'indexed' ? '✓ ' : ''}
-            {(doc.size / 1024).toFixed(1)} KB
-          </div>
-        </div>
-      ))}
+    <div className="document-list-wrap">
+      <label className="search-box"><span aria-hidden="true">⌕</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Filter documents" aria-label="Filter documents" />{search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search">×</button>}</label>
+      <div className="document-list">
+        {filteredDocuments.length === 0 ? (
+          <div className="empty-library"><div className="empty-glyph" aria-hidden="true">＋</div><strong>{documents.length === 0 ? 'Your library is empty' : 'No matching documents'}</strong><span>{documents.length === 0 ? 'Import a .md or .txt file to begin.' : 'Try a different title or filename.'}</span></div>
+        ) : filteredDocuments.map(doc => (
+          <button className={`document-row ${selectedId === doc.id ? 'is-selected' : ''}`} key={doc.id} onClick={() => onSelect(doc)}>
+            <span className="document-icon" aria-hidden="true">{doc.filename.toLowerCase().endsWith('.md') ? 'M' : 'T'}</span>
+            <span className="document-row-copy"><strong>{doc.title}</strong><span>{formatSize(doc.size)} <span className="separator">·</span> {doc.status === 'indexed' ? 'Indexed' : 'Needs index'}</span></span>
+            <span className={`document-state state-${doc.status}`} aria-label={doc.status} />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
