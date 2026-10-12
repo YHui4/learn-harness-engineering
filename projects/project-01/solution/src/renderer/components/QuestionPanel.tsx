@@ -1,61 +1,11 @@
-import { useState } from 'react';
+interface Props { question: string; onQuestionChange: (value: string) => void; onAsk: (question: string) => void; isLoading: boolean }
 
-interface Props {
-  onAsk: (question: string) => void;
-}
-
-export function QuestionPanel({ onAsk }: Props) {
-  const [question, setQuestion] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
-    onAsk(question.trim());
-    setQuestion('');
-  };
-
+export function QuestionPanel({ question, onQuestionChange, onAsk, isLoading }: Props) {
+  const handleSubmit = (event: React.FormEvent) => { event.preventDefault(); onAsk(question); };
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        display: 'flex',
-        padding: '12px 20px',
-        borderTop: '1px solid #0f3460',
-        background: '#16213e',
-      }}
-    >
-      <input
-        type="text"
-        value={question}
-        onChange={e => setQuestion(e.target.value)}
-        placeholder="Ask a question about your documents..."
-        style={{
-          flex: 1,
-          padding: '10px 14px',
-          background: '#1a1a2e',
-          color: '#e0e0e0',
-          border: '1px solid #0f3460',
-          borderRadius: '6px',
-          fontSize: '14px',
-          outline: 'none',
-        }}
-      />
-      <button
-        type="submit"
-        style={{
-          marginLeft: '10px',
-          padding: '10px 20px',
-          background: '#533483',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 500,
-        }}
-      >
-        Ask
-      </button>
+    <form className="question-panel" onSubmit={handleSubmit}>
+      <div className="composer-shell"><textarea value={question} onChange={event => onQuestionChange(event.target.value)} placeholder="Ask anything about your library..." aria-label="Ask a question about your documents" rows={1} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onAsk(question); } }} /><button className="send-button" type="submit" disabled={isLoading || !question.trim()} title="Ask your library">{isLoading ? <span className="send-loader" aria-label="Loading" /> : <span aria-hidden="true">↗</span>}</button></div>
+      <div className="composer-hint"><span>Enter to ask</span><span>Answers are generated locally from indexed documents</span></div>
     </form>
   );
 }

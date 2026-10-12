@@ -1,4 +1,4 @@
-import { IpcMain } from 'electron';
+import { BrowserWindow, dialog, IpcMain } from 'electron';
 import { DocumentService } from '../services/document-service';
 import { IndexingService } from '../services/indexing-service';
 import { QaService } from '../services/qa-service';
@@ -20,6 +20,21 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
 
   ipcMain.handle(IPC_CHANNELS.IMPORT_DOCUMENT, async (_event, filePath: string) => {
     return documentService.importDocument(filePath);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.IMPORT_DOCUMENT_DIALOG, async (event) => {
+    const ownerWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    const dialogOptions = {
+      title: 'Import to knowledge base',
+      properties: ['openFile'] as Array<'openFile' | 'openDirectory' | 'multiSelections' | 'showHiddenFiles' | 'createDirectory' | 'promptToCreate' | 'noResolveAliases' | 'treatPackageAsDirectory' | 'dontAddToRecent'>,
+      filters: [{ name: 'Text documents', extensions: ['md', 'txt'] }],
+    };
+    const result = ownerWindow
+      ? await dialog.showOpenDialog(ownerWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return documentService.importDocument(result.filePaths[0]);
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_DOCUMENT, async (_event, id: string) => {

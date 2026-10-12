@@ -77,6 +77,12 @@ export class PersistenceService {
     return fs.existsSync(path.join(this.dataDir, relativePath));
   }
 
+  /** Delete a file from the local data store when it exists. */
+  deleteFile(relativePath: string): void {
+    const fullPath = path.join(this.dataDir, relativePath);
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  }
+
   /** Get the data directory path. */
   getDataDir(): string {
     return this.dataDir;

@@ -81,9 +81,17 @@ export class DocumentService {
     if (!doc) return false;
 
     this.persistence.deleteFromDocuments(doc.filename);
+    this.persistence.deleteFile(`content/${id}.txt`);
+    this.persistence.deleteFile(`chunks/${id}.json`);
 
     const updated = docs.filter(d => d.id !== id);
     this.persistence.writeJson(DOCUMENTS_META, updated);
+
+    const indexMeta = this.persistence.readJson<Record<string, string[]>>('index-meta.json') ?? {};
+    if (indexMeta[id]) {
+      delete indexMeta[id];
+      this.persistence.writeJson('index-meta.json', indexMeta);
+    }
     return true;
   }
 }
