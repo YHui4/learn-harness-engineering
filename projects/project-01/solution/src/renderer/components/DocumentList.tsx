@@ -17,15 +17,15 @@ export function DocumentList({ documents, onSelect, selectedId }: Props) {
 
   return (
     <div className="document-list-wrap">
-      <label className="search-box"><span aria-hidden="true">⌕</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Filter documents" aria-label="Filter documents" />{search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search">×</button>}</label>
+      <label className="search-box"><span aria-hidden="true">⌕</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="筛选文档" aria-label="筛选文档" />{search && <button type="button" onClick={() => setSearch('')} aria-label="清除搜索">×</button>}</label>
       <div className="document-list">
         {filteredDocuments.length === 0 ? (
-          <div className="empty-library"><div className="empty-glyph" aria-hidden="true">＋</div><strong>{documents.length === 0 ? 'Your library is empty' : 'No matching documents'}</strong><span>{documents.length === 0 ? 'Import a .md or .txt file to begin.' : 'Try a different title or filename.'}</span></div>
+          <div className="empty-library"><div className="empty-glyph" aria-hidden="true">＋</div><strong>{documents.length === 0 ? '知识库还是空的' : '没有匹配的文档'}</strong><span>{documents.length === 0 ? '导入 .md 或 .txt 文件开始使用。' : '试试其他标题或文件名。'}</span></div>
         ) : filteredDocuments.map(doc => (
           <button className={`document-row ${selectedId === doc.id ? 'is-selected' : ''}`} key={doc.id} onClick={() => onSelect(doc)}>
             <span className="document-icon" aria-hidden="true">{doc.filename.toLowerCase().endsWith('.md') ? 'M' : 'T'}</span>
-            <span className="document-row-copy"><strong>{doc.title}</strong><span>{formatSize(doc.size)} <span className="separator">·</span> {doc.status === 'indexed' ? 'Indexed' : 'Needs index'}</span></span>
-            <span className={`document-state state-${doc.status}`} aria-label={doc.status} />
+            <span className="document-row-copy"><strong>{doc.title}</strong><span>{formatSize(doc.size)} <span className="separator">·</span> {doc.status === 'indexed' ? '已索引' : doc.status === 'error' ? '索引异常' : '待索引'}</span></span>
+            <span className={`document-state state-${doc.status}`} aria-label={doc.status === 'indexed' ? '已索引' : '待索引'} />
           </button>
         ))}
       </div>

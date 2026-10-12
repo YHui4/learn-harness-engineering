@@ -13,11 +13,11 @@ export function ImportPanel({ onImport }: Props) {
       textAlign: 'center',
       color: '#888',
     }}>
-      <div style={{ fontSize: '14px', marginBottom: '8px' }}>Import Documents</div>
+      <div style={{ fontSize: '14px', marginBottom: '8px' }}>导入文档</div>
       <div style={{ fontSize: '12px' }}>
-        Use the import button or drag files here.
+        使用导入按钮，或将文件拖到这里。
         <br />
-        Supported: .txt, .md files
+        支持 .txt、.md 文件
       </div>
       <input
         type="file"

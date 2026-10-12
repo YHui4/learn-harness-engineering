@@ -19,7 +19,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    title: 'Knowledge Base',
+    title: '知识库',
   });
 
   // In development, load from Vite dev server or built renderer

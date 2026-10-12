@@ -25,9 +25,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(IPC_CHANNELS.IMPORT_DOCUMENT_DIALOG, async (event) => {
     const ownerWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const dialogOptions = {
-      title: 'Import to knowledge base',
+      title: '导入到知识库',
       properties: ['openFile'] as Array<'openFile' | 'openDirectory' | 'multiSelections' | 'showHiddenFiles' | 'createDirectory' | 'promptToCreate' | 'noResolveAliases' | 'treatPackageAsDirectory' | 'dontAddToRecent'>,
-      filters: [{ name: 'Text documents', extensions: ['md', 'txt'] }],
+      filters: [{ name: '文本文档', extensions: ['md', 'txt'] }],
     };
     const result = ownerWindow
       ? await dialog.showOpenDialog(ownerWindow, dialogOptions)
